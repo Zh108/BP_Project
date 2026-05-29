@@ -1,0 +1,1896 @@
+// Mehrsa Ahmadi - 40223002
+// Zahra Heydari - 40223028
+// BP FINAL PROJECT
+#include <stdio.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+
+#define WIDTH 800
+#define HEIGHT 810
+
+int numStudents = 100;
+int delete[1000];
+int count = 0;
+int running = 1;
+
+//structure for each student
+typedef struct data
+{
+    // ترتیب بهتر باتوجه به padding
+    struct data *prev;
+    struct data *next;
+    int row;
+    char firstName[20];
+    char lastName[20];
+    char ID[20];
+    char city[20];
+    
+}data;
+
+// text and rect
+void get_text_and_rect(SDL_Renderer *renderer,
+    int x, int y,
+    char *text, TTF_Font *font,
+    SDL_Texture **texture, SDL_Rect *rect)
+{
+    int text_width;
+    int text_height;
+    SDL_Surface *surface;
+    SDL_Color textColor = { 0, 0, 0, 0 };
+
+    surface = TTF_RenderText_Solid(font,text,textColor);
+    *texture = SDL_CreateTextureFromSurface(renderer,surface);
+
+    text_width = surface->w;
+    text_height = surface->h;
+
+    SDL_FreeSurface(surface);
+
+    rect->x = x;
+    rect->y = y;
+    rect->w = text_width;
+    rect->h = text_height;
+}
+
+void lowercase(char string[])
+{
+    for (int i=0;i<strlen(string);i++)
+        string[i] = tolower(string[i]);
+}
+
+// Function to create a new student node
+data* createStudent(char firstName[], char lastName[], char ID[], char city[])
+{
+    data* newStudent = (data*)malloc(sizeof(data));
+    strcpy(newStudent->firstName, firstName);
+    strcpy(newStudent->lastName, lastName);
+    strcpy(newStudent->ID, ID);
+    strcpy(newStudent->city, city);
+    newStudent->prev = NULL;
+    newStudent->next = NULL;
+    return newStudent;
+}
+
+// Function to read the file
+data* readFile(data*head,data*tail,data*students[],int *ID_diff)
+{
+    char firstName[20];
+    char lastName[20];
+    char ID[20];
+    char city[20];
+    FILE* file = fopen("students.txt", "r");
+    if (file == NULL) 
+    {
+        printf("Error opening file\n");
+    }
+    for (int i = 0; i < numStudents; i++) 
+    {
+        fscanf(file,"%20s%20s%20s%20s",firstName,lastName,ID,city);
+        lowercase(firstName);
+        lowercase(lastName);
+        lowercase(city);
+        data* newStudent = createStudent(firstName, lastName, ID, city);
+
+        // Add the student to the linked list
+        if (head == NULL) 
+        {
+            head = newStudent;
+            tail = newStudent;
+        } else {
+            tail->next = newStudent;
+            newStudent->prev = tail;
+            tail = newStudent;
+        }
+
+        // Save the student in the array
+        students[i] = newStudent;
+        students[i]->row = i+1;
+    }
+    fclose(file);
+
+    // checking ID
+    for (int i=0;i<numStudents;i++)
+    {
+        for (int j=0;j<numStudents;j++)
+        {
+            if (i != j)
+            {
+                if (strcmp(students[i]->ID,students[j]->ID) == 0)
+                {
+                    *ID_diff = 0;
+                    printf("YOU HAVE ENTERED 2 SIMILAR ID:\n");
+                    printf("%-3d %-20s %-20s %-20s %-20s\n",students[i]->row, students[i]->firstName, students[i]->lastName, students[i]->ID, students[i]->city);
+                    printf("%-3d %-20s %-20s %-20s %-20s\n",students[j]->row, students[j]->firstName, students[j]->lastName, students[j]->ID, students[j]->city);
+                    break;
+                }
+            }
+            
+        }
+        if (*ID_diff == 0)
+        {
+            break;
+        }
+    }
+
+    return (head);
+}
+// Function to save the info from a doubly linked list in an array
+void ListToArray(data*head,data*students[])
+{
+    data * current = head;
+    for (int i = 0;i<numStudents;i++)
+    {
+        current -> row = i+1;
+        students[i] = current;
+        current = current->next;
+    }
+
+}
+
+// Function to save the info from an array to a doubly linked list
+data * ArrayToList(data*head,data*students[])
+{
+    data *head2 = NULL;
+    data *tail = NULL;
+    for(int i=0;i<numStudents;i++)
+    {
+        data* newStudent = createStudent(students[i]->firstName, students[i]->lastName, students[i]->ID,students[i]->city);
+        newStudent->row = i+1;
+        // Add the student to the linked list
+        if (head2 == NULL) 
+        {
+            head2 = newStudent;
+            tail = newStudent;
+        } else {
+            tail->next = newStudent;
+            newStudent->prev = tail;
+            tail = newStudent;
+        }
+    }
+    return head2;
+}
+
+// search
+void search(data*head,data*students[],int delete[],int *count)
+{
+    char title[20];
+    *count = 0;
+
+    printf("Enter the title of collumn you want to search ");
+    printf(" (the title should be row(1), first_name(2), last_name(3) , ID(4) or city(5) ):\n");
+    scanf("%s",title);    //دریافت عنوان از کاربر
+
+    lowercase(title);
+
+    if(strcmp(title,"row") == 0 || strcmp(title,"1") == 0)
+    {
+        int index = 0;
+        printf("Please enter the index:\n");
+        scanf("%d",&index);
+        printf("%-3d%-20s%-20s%-20s%-20s\n",students[index-1]->row, students[index-1]->firstName, students[index-1]->lastName, students[index-1]->ID, students[index]->city);
+        // for deleting the students
+        delete[0]=index;
+        (*count) = 1;
+    }
+
+    if(strcmp(title,"first_name") == 0 || strcmp(title,"2") == 0)//در صورت دریافت نام از کاربر 
+    {
+        char name[20];
+        
+        printf("Enter the first name you want to find : \n");
+        scanf("%s",name);
+
+        lowercase(name);
+
+        int flag_firstname = 0;
+
+        data *current = head;
+
+        for(int i=0;i<numStudents;i++)
+        {
+            if(strcmp(name,current->firstName)==0)
+            {
+                printf("%-3d%-20s%-20s%-20s%-20s",current->row, current->firstName, current->lastName, current->ID, current->city);
+                printf("\n");
+                flag_firstname = 1;
+                // for deleting the students
+                delete[*count] = current->row;
+                (*count) ++;
+            }  
+            current =  current->next;
+        } 
+        
+            if(flag_firstname ==0)
+                printf("The first name you are looking for was not found. \n");
+        
+    }
+    
+    else if(strcmp(title,"last_name") == 0 || strcmp(title,"3") == 0)//در صورت دریافت نام خانوادگی از کاربر
+    {
+        char sur[20];
+
+        printf("Enter the last name you want to find : \n");
+        scanf("%s", sur);
+
+        lowercase(sur);
+        int flag_lastname = 0;
+
+        data *current = head;
+
+        for(int i=0;i<numStudents;i++)
+        {
+            if(strcmp(sur,current->lastName)==0)
+            {
+                printf("%-3d%-20s%-20s%-20s%-20s",current->row, current->firstName, current->lastName, current->ID, current->city);
+                printf("\n");
+                flag_lastname = 1;
+                // for deleting the students
+                delete[*count] = current->row;
+                (*count) ++;
+            }
+            current =  current->next; 
+        }
+            if(flag_lastname == 0)
+                printf("The last name you are looking for was not found.\n ");
+    }
+
+    else if(strcmp(title,"id") == 0 || strcmp(title,"4") == 0) //در صورت دریافت شماره دانشجویی از کاربر
+    {
+        char number[20];
+
+        printf("Enter the ID you want to find : \n");
+        scanf("%s",number);
+    
+        int flag_number = 0;
+
+        data *current = head;
+
+        for(int i=0;i<numStudents;i++)
+        {
+            if(strcmp(number,current->ID)==0)
+            {
+                printf("%-3d%-20s%-20s%-20s%-20s",current->row, current->firstName, current->lastName, current->ID, current->city);
+                printf("\n");
+                flag_number = 1;
+                // for deleting the students
+                delete[*count] =current->row;
+                (*count) ++;
+            }
+            current = current->next;
+        }
+            if(flag_number == 0)
+                printf("The ID you are looking for was not found.\n");
+    }
+
+    else if(strcmp(title,"city") == 0 || strcmp(title,"5") == 0)  //در صورت دریافت شهر از کاربر
+    {
+        char loc[20];
+
+        printf("Enter the city you want to find : \n");
+        scanf("%s",loc);
+        
+        lowercase(loc);
+
+        int flag_city = 0;
+
+        data *current = head;
+
+        for(int i=0;i<numStudents;i++)
+        {
+            if(strcmp(loc,current->city)==0)
+            {
+                printf("%-3d%-20s%-20s%-20s%-20s",current->row, current->firstName, current->lastName, current->ID, current->city);
+                printf("\n");
+                flag_city = 1;
+                // for deleting the students
+                delete[*count] = current->row;
+                (*count) ++; 
+            }
+            current =  current->next; 
+        }
+            if(flag_city == 0)
+                printf("The city you are looking for was not found .\n");
+
+    }
+    else {
+        printf("Please enter row or first_name or last_name or ID or city\n");
+        printf("Please try again!");
+    }
+    
+
+}
+
+
+// Function to insert a student
+data *insert(data*head,data*students[],int *ID_diff)
+{
+    char firstName[20];
+    char lastName[20];
+    char ID[20];
+    char city[20];
+    int position,index;
+    printf("Please enter the index of where you want to add a student: ");
+    scanf("%d",&index);
+    
+    if (index < 1)
+        index = 1;
+    else if(index > numStudents)
+        index = numStudents+1;
+    position = index -1;
+
+    printf("Please enter the first name of this student you want to insert in row no.%d:\n",index);
+    scanf("%s",firstName);
+    printf("Please enter the last name of this student you want to insert in row no.%d:\n",index);
+    scanf("%s",lastName);
+    printf("Please enter the ID of this student you want to insert in row no.%d:\n",index);
+    scanf("%s",ID);
+    for (int i = 0 ; i<numStudents ; i++)
+    {
+        if(strcmp(students[i]->ID,ID) == 0)
+        {
+            printf("ID is invalid!! It's same as this student:\n");
+            printf("%-3d %-20s %-20s %-20s %-20s\n",students[i]->row, students[i]->firstName, students[i]->lastName, students[i]->ID, students[i]->city);
+            printf("Please try again.");
+            *ID_diff = 0;
+            running = 0; // close
+            break;
+        } 
+    }
+    if (*ID_diff == 1)
+    {
+    printf("Please enter the city of this student you want to insert in row no.%d:\n",index);
+    scanf("%s",city);
+
+    lowercase(firstName);
+    lowercase(lastName);
+    lowercase(city);
+    data* newStudent = createStudent(firstName, lastName, ID, city);
+    data* temp_prev = head; // prev of new student
+    data* temp2_next = NULL; // next of new student
+    if (position == 0)//insert at the begging
+    {
+        newStudent -> prev = NULL;
+        newStudent -> next = head;
+        head -> prev = newStudent;
+        head = newStudent;
+    } else {
+        for (int i=1;i<(position);i++)
+        temp_prev = temp_prev -> next;
+        if (temp_prev ->next == NULL)//insert at the end
+        {
+            temp_prev -> next = newStudent;
+            newStudent -> prev = temp_prev;
+        }else{ // insert in the middle
+            temp2_next = temp_prev -> next;
+            temp_prev -> next = newStudent;
+            temp2_next -> prev = newStudent;
+            newStudent -> next = temp2_next;
+            newStudent -> prev = temp_prev;
+        }
+    }
+    
+    numStudents ++;
+    ListToArray(head,students);
+    
+    }
+    return head;
+}
+
+// Function to delete a student
+data* deletefunc(data*head,data *students[],int position)
+{
+    data * temp_del =  head;
+    data * temp2 = NULL;
+    if (position == 1) // deleting the first node
+    {
+        temp2 = temp_del -> next;
+        temp2 -> prev = NULL;
+        head = temp2;
+    } else {
+        for (int i=1 ; i < position ; i++)
+        {
+            temp_del = temp_del -> next;//temp_del points to where we want to delete
+        }
+        if (temp_del -> next == NULL) // deleting the last node
+        {
+            temp2 = temp_del -> prev;
+            temp2-> next = NULL;
+        }else{// deleting the node in the middle of linked list
+        temp2 = temp_del -> prev; //temp2 points to prev of where we want to delete
+        temp2 -> next = temp_del -> next;
+        temp_del->next->prev = temp2;
+        }
+        
+    }
+    free (temp_del);
+
+    // save the info in the array
+    numStudents --;
+    ListToArray(head,students);
+    
+    return head;
+}
+
+
+// Function random
+data * random_changing(data *head, struct data *students[], int size)
+{
+    srand(time(NULL));
+    
+    for(int i = size - 1 ; i > 0 ; --i)
+    {
+        int j = rand() % (i + 1);
+        //swapping
+        struct data *temp = students[i];
+        students[i] = students[j];
+        students[j] = temp;
+    }
+
+    // saving the info of the array in the doubly linked list
+    head = ArrayToList(head,students);
+    return head;
+}
+
+// Functions to sort :)))
+data* quick_sort(data*head,struct data *students[], int low, int high, int flag, int x)
+{
+    if(x == 1) //مرتب سازی بر اساس نام 
+    {
+        if(flag == 1) //صعودی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->firstName);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->firstName,pivot) < 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }
+
+        else //نزولی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->firstName);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->firstName,pivot) > 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        } 
+    }
+
+    else if(x == 2) //مرتب سازی بر اساس نام خانوادگی
+    {
+        if(flag == 1) //صعودی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->lastName);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->lastName,pivot) < 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }
+
+        else //نزولی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->lastName);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->lastName,pivot) > 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        } 
+    }
+
+    else if(x == 3) //مرتب سازی بر اساس شماره دانشجویی
+    {
+        if(flag == 1) //صعودی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->ID);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->ID,pivot) < 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }
+
+        else //نزولی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->ID);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->ID,pivot) > 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }   
+    }
+
+    else  //مرتب سازی بر اساس نام شهر
+    {
+        if(flag == 1) //صعودی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->city);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->city,pivot) < 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }
+
+        else //نزولی
+        {
+            if(low < high)
+            {
+                char pivot[20];
+                strcpy(pivot,students[high]->city);
+
+                int i = low - 1;
+
+                for(int j = low ; j <=high - 1 ; j++)
+                {
+                    if(strcmp(students[j]->city,pivot) > 0)
+                    {
+                        i++;
+
+                        //swapping
+                        struct data *temp = students[i];
+                        students[i] = students[j];
+                        students[j] = temp;
+                    }
+                }
+
+                //swap pivot elemen
+                struct data *temp = students[i+1];
+                students[i+1] = students[high];
+                students[high] = temp;
+
+                //recusive call
+                head = quick_sort(head,students,low,i,flag,x);
+                head = quick_sort(head,students,i+2,high,flag,x);
+            }
+        }
+    }
+    head = ArrayToList(head,students);
+    return head;
+}
+
+data* bubble_sort(data* head,struct data *students[], int n, int flag, int x)
+{
+    if(x == 1) // مرتب کردن بر اساس نام
+    {
+        if(flag == 1) // صعودی
+        {
+            for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->firstName, students[j+1]->firstName) > 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }
+        }
+
+        else //نزولی
+        {
+        for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->firstName, students[j+1]->firstName) < 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }   
+        }
+    }
+
+    else if(x == 2) // مرتب کردن بر اساس نام خانوادگی
+    {
+        if(flag == 1) // صعودی
+        {
+            for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->lastName, students[j+1]->lastName) > 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }
+        }
+
+        else // نزولی
+        {
+        for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->lastName, students[j+1]->lastName) < 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }   
+        }
+    }
+
+    else if(x == 3) // مرتب کردن بر اساس شماره دانشجویی
+    {
+        if(flag == 1) // صعودی
+        {
+            for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->ID, students[j+1]->ID) > 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }
+        }
+
+        else //نزولی
+        {
+        for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->ID, students[j+1]->ID) < 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }   
+        }
+    }
+
+    else // مرتب کردن بر اساس شهر
+    {
+        if(flag == 1) // صعودی
+        {
+            for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->city, students[j+1]->city) > 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }
+        }
+
+        else // نزولی
+        {
+        for(int i = 0 ; i < n-1 ; i++)
+                for(int j = 0 ; j < n - i -1 ; j++)
+                    if(strcmp(students[j]->city, students[j+1]->city) < 0)
+                    {   
+                        struct data *temp = students[j];
+                        students[j] = students[j+1];
+                        students[j+1] = temp;
+                    }   
+        }
+    }
+    head = ArrayToList(head,students);
+    return head;
+}
+
+data * selection_sort(data* head,struct data *students[], int n, int flag, int x)
+{   
+    if(x == 1) //مرتب کردن بر اساس نام 
+    {
+        if(flag ==1) // صعودی
+        {
+            int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->firstName, students[minIndex]->firstName) < 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }
+        }
+
+        else // نزولی
+        {
+        int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->firstName, students[minIndex]->firstName) > 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }   
+        }
+    }
+
+    else if(x == 2) // مرتب سازی بر اساس نام خانوادگی
+    {
+         if(flag ==1) // صغودی
+        {
+            int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->lastName, students[minIndex]->lastName) < 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }
+        }
+
+        else // نزولی
+        {
+        int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->lastName, students[minIndex]->lastName) > 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }   
+        }
+    }    
+
+    else if(x == 3) // مرتب سازی بر اساس شماره دانشجویی
+    {
+        if(flag ==1) // صعودی
+        {
+            int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->ID, students[minIndex]->ID) < 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }
+        }
+
+        else // نزولی
+        {
+        int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->ID, students[minIndex]->ID) > 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }   
+        }
+    }
+    
+    else // مرتب سازی بر اساس شهر
+    {
+        if(flag ==1) // صعودی
+        {
+            int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->city, students[minIndex]->city) < 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }
+        }
+
+        else // نزولی
+        {
+        int i, j, minIndex;
+            for( i = 0 ; i < n-1 ; i++)
+            {
+                minIndex = i;
+                for(j = i+1 ; j < n ; j++)
+                {
+                    if(strcmp(students[j]->city, students[minIndex]->city) > 0)
+                    {
+                        minIndex = j;
+                    }
+                }
+                struct data *temp = students[minIndex];
+                students[minIndex] = students[i];
+                students[i] = temp;
+            }   
+        }
+    }
+    head = ArrayToList(head,students);
+    return head;
+}
+
+
+
+data* insertion_sort(data* head,struct data *students[],int n, int flag, int x)
+{
+    if(x == 1) // مرتب سازی بر اساس نام
+    {
+        if(flag == 1) // صعودی
+        {
+            int i, j;
+            struct data key;
+        
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->firstName, key.firstName) > 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+        }
+
+        else // نزولی
+        {
+            int i, j;
+            struct data key;
+        
+            for(i = 1 ; i < n ; i++)
+            {
+            key = *students[i];
+            j = i-1;
+
+            while ( j>= 0 && strcmp(students[j]->firstName, key.firstName) < 0)
+            {
+                *students[j+1] = *students[j];
+                j = j-1;
+            }
+            *students[j+1] = key;
+            }
+        }
+    }
+
+    else if(x == 2) // مرتب سازی بر اساس نام خانوادگی
+    {
+        if(flag == 1) // صعودی
+        {
+            int i, j;
+            struct data key;
+            
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->lastName, key.lastName) > 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+        }
+
+        else // نزولی
+        {
+            int i, j;
+            struct data key;
+            
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->lastName, key.lastName) < 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+        }
+    } 
+
+    else if(x == 3) // مرتب سازی بر اساس شماره دانشجویی
+    {
+        if (flag == 1) // صعودی
+        {
+            int i, j;
+            struct data key;
+            
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->ID, key.ID) > 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+        }
+
+        else //نزولی
+        {
+            int i, j;
+            struct data key;
+            
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->ID, key.ID) < 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }  
+        }  
+    } 
+
+    else // مرتب سازی بر اساس شهر
+    {
+         if(flag == 1) // صعودی 
+        {
+            int i, j;
+            struct data key;
+            
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->city, key.city) > 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+        }
+
+        else //نزولی
+        {
+            int i, j;
+            struct data key;
+        
+            for(i = 1 ; i < n ; i++)
+            {
+                key = *students[i];
+                j = i-1;
+
+                while ( j>= 0 && strcmp(students[j]->city, key.city) < 0)
+                {
+                    *students[j+1] = *students[j];
+                    j = j-1;
+                }
+                *students[j+1] = key;
+            }
+
+        }
+    }
+    head = ArrayToList(head,students);
+    return head;
+}
+
+
+
+
+// Function to write in the file
+void writeToFile(data* head) {
+    FILE* file2 = fopen("students.txt", "w");
+    if (file2 == NULL) {
+        printf("Error opening file.\n");
+    }
+
+    data* current = head;
+    while (current != NULL) {
+        fprintf(file2,"%-20s %-20s %-20s %-20s\n",current->firstName, current->lastName, current->ID, current->city);
+        current = current->next;
+    }
+
+    fclose(file2);
+
+    FILE* file3 = fopen("output.bin", "wb");
+    if (file3 == NULL) {
+        printf("Error opening file.\n");
+    }
+
+    data* current2 = head;
+    while (current2 != NULL) {
+        fprintf(file3,"%-20s %-20s %-20s %-20s\n",current2->firstName, current2->lastName, current2->ID, current2->city);
+        current2 = current2->next;
+    }
+
+    fclose(file3);
+}
+
+
+// Function to print information in the linked list
+void print(data * head)
+{
+    printf("NO. FIRST NAME           LAST NAME            ID                   CITY\n");
+    data* current = head;
+    while (current != NULL)
+    {
+        printf("%-3d %-20s %-20s %-20s %-20s\n", current->row, current->firstName, current->lastName, current->ID, current->city);
+        current = current->next;
+    }
+
+}
+
+
+int main(int argc, char* argv[])
+{
+  /* Initializes the timer, audio, video, joystick,
+  haptic, gamecontroller and events subsystems */
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
+  {
+    printf("Error initializing SDL: %s\n", SDL_GetError());
+    return 0;
+  }
+  /* Create a window */
+  SDL_Window* wind = SDL_CreateWindow("ZAHRA HEYDARI,MEHRSA AHMADI PROJECT!",
+                                      SDL_WINDOWPOS_CENTERED,
+                                      SDL_WINDOWPOS_CENTERED,
+                                      WIDTH, HEIGHT, 0);
+  if (!wind)
+  {
+    printf("Error creating window: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 0;
+  }
+  /* Create a renderer */
+  Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
+  SDL_Renderer* rend = SDL_CreateRenderer(wind, -1, render_flags);
+  if (!rend)
+  {
+    printf("Error creating renderer: %s\n", SDL_GetError());
+    SDL_DestroyWindow(wind);
+    SDL_Quit();
+    return 0;
+  }
+
+
+  TTF_Init();
+  TTF_Font *font = TTF_OpenFont ("arial.ttf",24);
+  if (!font)
+  {
+    printf("Error initializing font: %s\n", SDL_GetError());
+    SDL_DestroyWindow(wind);
+    SDL_Quit();
+    return 0;
+  }
+  
+
+
+    /*clear screen*/
+    SDL_SetRenderDrawColor(rend, 171,210,250,100);
+    SDL_RenderClear(rend);
+
+    SDL_Texture *texture;
+
+    // make the text box
+
+      //readfile
+        SDL_Rect rect1 = {10,10,500,90};
+        SDL_Rect text_rect_readFile= {10,10,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect1);
+        get_text_and_rect(rend, text_rect_readFile.x + 10, text_rect_readFile.y + 10,"Read File!", font, &texture, &text_rect_readFile);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_readFile);
+
+
+      //search
+        SDL_Rect rect2 = {10,110,500,90};
+        SDL_Rect text_rect_search= {10,110,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect2);
+        get_text_and_rect(rend, text_rect_search.x + 10, text_rect_search.y + 10,"Search!", font, &texture, &text_rect_search);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_search);
+
+      //adding a student
+        SDL_Rect rect3 = {10,210,500,90};
+        SDL_Rect text_rect_add= {10,210,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect3);
+        get_text_and_rect(rend, text_rect_add.x + 10, text_rect_add.y + 10,"Add Student!", font, &texture, &text_rect_add);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_add);
+
+      //deleting a student
+        SDL_Rect rect4 = {10,310,500,90};
+        SDL_Rect text_rect_delet= {10,310,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect4);
+        get_text_and_rect(rend, text_rect_delet.x + 10, text_rect_delet.y + 10,"Delete Student!", font, &texture, &text_rect_delet);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_delet);
+
+      //random
+        SDL_Rect rect5 = {10,410,500,90};
+        SDL_Rect text_rect_random= {10,410,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect5);
+        get_text_and_rect(rend, text_rect_random.x + 10, text_rect_random.y + 10,"Random!", font, &texture, &text_rect_random);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_random);
+
+      //sort
+        SDL_Rect rect6 = {10,510,500,90};
+        SDL_Rect text_rect_sort= {10,510,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect6);
+        get_text_and_rect(rend, text_rect_sort.x + 10, text_rect_sort.y + 10,"Sort!", font, &texture, &text_rect_sort);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_sort);
+
+      //writing file
+        SDL_Rect rect7 = {10,610,500,90};
+        SDL_Rect text_rect_write= {10,610,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect7);
+        get_text_and_rect(rend, text_rect_write.x + 10, text_rect_write.y + 10,"Write File!", font, &texture, &text_rect_write);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_write);
+
+      //close
+        SDL_Rect rect8 = {10,710,500,90};
+        SDL_Rect text_rect_close= {10,710,500,90};
+        SDL_SetRenderDrawColor(rend,255,198,217,255);
+        SDL_RenderFillRect(rend,&rect8);
+        get_text_and_rect(rend, text_rect_close.x + 10, text_rect_close.y + 10,"Close File!", font, &texture, &text_rect_close);
+        SDL_RenderCopy(rend,texture,NULL,&text_rect_close);
+
+
+    SDL_RenderPresent(rend);
+
+    // Initialize the head of the linked list
+      data* head = NULL;
+      data* tail = NULL;
+      data *students[1000];
+      int ID_diff = 1;
+    
+    //int running = 1;
+    int flag_read = 0;
+    int flag_search = 0;
+    int flag_add = 0;
+    int flag_delete = 0;
+    int flag_random = 0;
+    int flag_sort = 0;
+    int flag_write = 0;
+    SDL_Event event;
+    while(running)
+    {
+      while (SDL_PollEvent(&event))
+      {
+        if(event.type == SDL_QUIT)
+        {
+          running = 0;
+          break;
+        }
+
+        if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON(SDL_BUTTON_LEFT))
+        {
+          SDL_Point mousePosition;
+          mousePosition.x = event.motion.x;
+          mousePosition.y = event.motion.y;
+
+
+          if (SDL_PointInRect(&mousePosition,&rect1)) // read file
+          {
+            flag_read = 1;
+            printf("reading file...!\n");
+            head = readFile(head,tail,students,&ID_diff);
+            // Print the student information from the doubly linked list
+            if (ID_diff)
+            {
+              print(head);
+            } else 
+            {
+                running = 0;
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect2)) //searching
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_search = 1;
+              flag_write = 0;
+              printf("searching...!\n");
+              search(head,students,delete,&count);
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect3)) // add a student
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_add = 1;
+              flag_write = 0;
+              printf("adding a student...!\n");
+              head = insert(head,students,&ID_diff);
+              if (ID_diff == 1)
+              {
+                printf("after adding:\n");
+                print(head);
+              }
+            }
+          }
+          
+          if (SDL_PointInRect(&mousePosition,&rect4)) // deleting a student
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_delete = 1;
+              flag_write = 0;
+              printf("deleting a student...!\n");
+              printf("please enter column you want to delete and search:\n");
+              search(head,students,delete,&count);
+              if (count > 0)
+              {
+                int done = 0;
+                for (int i=0;i<count;i++)
+                {
+                  head = deletefunc(head,students,delete[i]-done);
+                  ++ done;
+                }
+              }
+              print(head);
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect5)) //random changing
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_random = 1;
+              flag_write = 0;
+              printf("random...!\n");
+              char change[20];
+              //وارد کردن عبارت بهم زدن تصادفی توسط کاربر
+              printf("If you want to change the order of students randomly enter (random_changing) :\n" );
+              scanf("%s",change);
+
+              lowercase(change);
+
+              if(strcmp(change,"random_changing") == 0)
+              {
+                head = random_changing(head,students,numStudents);
+                // Print the student information from the doubly linked list
+                print(head);
+              }
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect6)) // sorting
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_write = 0;
+              flag_sort = 1;
+              printf("sorting...!\n");
+              // sorting
+    char NewTitle[20];
+    double time_taken;
+    clock_t start_time;
+    clock_t end_time;
+    char how[10];
+    char sort[20];
+    
+    printf("Enter the title of collumn you want to sort ");
+    printf("(The title should be first_name, last_name, id or city) : \n");
+    scanf("%s",NewTitle); //دریافت عنوان از کاربر
+
+    lowercase(NewTitle);
+
+    int x;
+
+    if(strcmp(NewTitle,"first_name")==0)//درصورت دریافت نام از کاربر
+    {       
+        x = 1;
+
+        printf("In which way do you want to sort ");
+        printf("(selection_sort, Insertion_sort, Bubble_sort or Quick_sort) ? : \n");
+        scanf("%s",sort);
+
+        lowercase(sort);
+
+        printf("How do you want to sort the first names (upward or downward) ? : \n");
+        scanf("%s",how);
+
+        lowercase(how);
+
+       int flag = 0;
+       if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"upward") == 0))//if insertion sort upward selected
+           {
+            flag = 1;
+            start_time = clock();
+            head = insertion_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+           }
+
+        else if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"downward") == 0))//if insertion sort downward selected
+            {
+                start_time = clock();
+                head = insertion_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"upward") == 0)) //if selection upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = selection_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }  
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"downward") == 0)) //if selection downward selected
+            {
+                start_time = clock();
+                head = selection_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"upward") == 0)) //if bubble upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = bubble_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"downward") == 0)) //if bubbled downward sort selected
+            {
+                start_time = clock();
+                head = bubble_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"quick_sort") == 0) && (strcmp(how,"upward") == 0)) //if quick upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = quick_sort(head,students,0,numStudents-1,flag,x);
+            end_time = clock();
+            
+        }
+
+        else                                                                     //if quick downward sort selected
+            {
+                start_time = clock();
+                head = quick_sort(head,students,0,numStudents-1,flag,x);
+                end_time = clock();
+            }
+    }
+
+    else if(strcmp(NewTitle,"last_name")==0)//درصورت انتخاب نام خانوادگی توسط کاربر
+    {
+        x = 2;
+
+        printf("In which way do you want to sort ");
+        printf("(selection_sort, Insertion_sort, Bubble_sort or Quick_sort) ? : \n");
+        scanf("%s",sort);
+
+        lowercase(sort);
+
+        printf("How do you want to sort the last names (upward or downward) ? : \n");
+        scanf("%s",how);
+
+        lowercase(how);
+
+        int flag = 0;
+        if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"upward") == 0)) //if the insertion upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = insertion_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"downward") == 0)) //if the insertion downward sort selected
+            {
+                start_time = clock();
+                head = insertion_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+           
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"upward") == 0)) //if selection upward sort selected
+        {  
+            flag = 1;
+            start_time = clock();
+            head = selection_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }  
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"downward") == 0)) //if selection downward selected
+            {
+                start_time = clock();
+                head = selection_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            } 
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"upward") == 0)) //if bubble upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = bubble_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"downward") == 0)) //if bubbled downward sort selected
+            {
+                start_time = clock();
+                head = bubble_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"quick_sort") == 0) && (strcmp(how,"upward") == 0)) //if quick upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = quick_sort(head,students,0,numStudents-1,flag,x);
+            end_time = clock();
+        }
+
+        else                                                                     //if quick downward sort selected
+            {
+                start_time = clock();
+                head = quick_sort(head,students,0,numStudents-1,flag,x);
+                end_time = clock();
+            }
+    }
+
+    else if(strcmp(NewTitle,"id")==0) //درصورت دریافت شماره دانشجویی از کاربر
+    {   
+        x = 3;
+
+        printf("In which way do you want to sort ");
+        printf("(selection_sort, Insertion_sort, Bubble_sort or Quick_sort) ? : \n");
+        scanf("%s",sort);
+
+        lowercase(sort);
+
+        printf("How do you want to sort the ides (upward or downward) ? : \n");
+        scanf("%s",how);
+
+        lowercase(how);
+
+        int flag = 0;
+        if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"upward") == 0)) //if the insertion upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = insertion_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"downward") == 0)) //if the insertion downward sort selected
+            {
+                start_time = clock();
+                head = insertion_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"upward") == 0)) //if selection upward sort selected
+        {   
+            flag = 1;
+            start_time = clock();
+            head = selection_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }  
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"downward") == 0)) //if selection downward selected
+            {
+                start_time = clock();
+                head = selection_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"upward") == 0)) //if bubble upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = bubble_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"downward") == 0)) //if bubbled downward sort selected
+            {
+                start_time = clock();
+                head = bubble_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"quick_sort") == 0) && (strcmp(how,"upward") == 0)) //if quick upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = quick_sort(head,students,0,numStudents-1,flag,x);
+            end_time = clock();
+        }
+
+        else                                                                     //if quick downward sort selected
+            {
+                start_time = clock();
+                head = quick_sort(head,students,0,numStudents-1,flag,x);
+                end_time = clock();
+            }
+    }
+
+    else // درصورت دریافت شهر از کاربر
+    {
+        printf("In which way do you want to sort ");
+        printf("(selection_sort, Insertion_sort, Bubble_sort or Quick_sort) ? : \n");
+        scanf("%s",sort);
+        
+        lowercase(sort);
+
+        printf("How do you want to sort the cities (upward or downward) ? : \n");
+        scanf("%s",how);
+
+        lowercase(how);
+
+        int flag = 0;
+        if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"upward") == 0)) //if the insertion upward sort selected
+        {
+            flag =1;
+            start_time = clock();
+            head = insertion_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"insertion_sort") == 0) && (strcmp(how,"downward") == 0)) //if the insertion downward sort selected
+            {
+                start_time = clock();
+                head = insertion_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"upward") == 0)) //if selection upward sort selected
+        {   
+            flag = 1;
+            start_time = clock();
+            head = selection_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }  
+
+        else if((strcmp(sort,"selection_sort") == 0) && (strcmp(how,"downward") == 0)) //if selection downward selected
+             {
+                start_time = clock();
+                head = selection_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+             }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"upward") == 0)) //if bubble upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head =bubble_sort(head,students,numStudents,flag,x);
+            end_time = clock();
+        }
+
+        else if((strcmp(sort,"bubble_sort") == 0) && (strcmp(how,"downward") == 0)) //if bubbled downward sort selected
+            {
+                start_time = clock();
+                head = bubble_sort(head,students,numStudents,flag,x);
+                end_time = clock();
+            }
+
+        else if((strcmp(sort,"quick_sort") == 0) && (strcmp(how,"upward") == 0)) //if quick upward sort selected
+        {
+            flag = 1;
+            start_time = clock();
+            head = quick_sort(head,students,0,numStudents-1,flag,x);
+            end_time = clock();
+        }
+
+        else                                                                     //if quick downward sort selected
+            {
+                start_time = clock();
+                head = quick_sort(head,students,0,numStudents-1,flag,x);
+                end_time = clock();
+            }
+           
+    }
+
+            //time
+            time_taken = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
+             // Print the student information from the doubly linked list
+            printf("NO. FIRST NAME           LAST NAME            ID                   CITY\n");
+            for (int i=0;i<numStudents;i++)
+            {
+            printf("%-3d %-20s %-20s %-20s %-20s\n",i+1, students[i]->firstName, students[i]->lastName, students[i]->ID, students[i]->city);
+            } 
+
+            printf("students are sorted : %s\n", how);
+            printf("students are sorted based on : %s\n", NewTitle);
+            printf("The way the students are sorted : %s\n",sort);
+            printf("the time that sorting took is : %f sec\n", time_taken);
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect7)) // writing the file
+          {
+            if (!flag_read)
+            {
+              printf("First click on reading file!!!\n");
+            } else {
+              flag_write = 1;
+              flag_add = 0;
+              flag_delete = 0;
+              flag_random = 0;
+              flag_search = 0;
+              flag_sort = 0;
+              printf("writing the file...!\n");
+              writeToFile(head);
+              printf("done!\n");
+            }
+          }
+
+          if (SDL_PointInRect(&mousePosition,&rect8)) // closing
+          {
+            if ((flag_add == 1 || flag_delete == 1 || flag_random == 1 || flag_search == 1 || flag_sort == 1 ) && flag_write == 0)
+            {
+              char sure_close[5];// age write ro nazade vali yaki dige az tavabee ro zade azash beporse matmaenni?
+              printf("You did not write the changes in a file... Are sure about closing?(write YES OR NO):\n");
+              scanf("%s",sure_close);
+              lowercase(sure_close);
+              if (strcmp(sure_close,"yes") == 0)
+              {
+                printf("closing...!\n");
+                running = 0;
+                break;
+              }
+            }else{
+              printf("closing...!\n");
+              running = 0;
+              break;
+            }
+          }
+
+        }
+      }
+    }
+
+  /* Release resources */
+  SDL_DestroyRenderer(rend);
+  SDL_DestroyWindow(wind);
+  SDL_Quit();
+
+
+  // Free the memory allocated for the linked list
+    data* current = head;
+    while (current != NULL) {
+        data* temp = current;
+        current = current->next;
+        free(temp);
+    }
+
+  return 0;
+}
